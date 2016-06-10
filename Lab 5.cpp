@@ -1,5 +1,7 @@
 // Ronen Burd
-//Lab 5: The encoding part
+// Partner: Maryna Kapurova
+//Lab 5
+//Part I was supposed to do: encoding
 //CIS 28
 #include <iostream>
 #include <string>
@@ -15,6 +17,7 @@
 
 using namespace std;
 
+//by default I treat HuffmanNode as the leaf node even though it's the parent class
 class HuffmanNode {
 private:
 	string key;
@@ -25,7 +28,7 @@ public:
 		return false;
 	}
 
-	void setKey(string strKey) {
+	void setKey(const string& strKey) {
 		key = strKey;
 	}
 	string getKey(){
@@ -39,12 +42,8 @@ public:
 		return frequency;
 	}
 
-	HuffmanNode() {
-
-	}
-	~HuffmanNode() {
-
-	}
+	HuffmanNode() { frequency = 0;  }
+	virtual ~HuffmanNode() { }
 };
 
 class HuffmanBranchNode : public HuffmanNode {
@@ -75,8 +74,8 @@ public:
 		right = nullptr;
 	}
 	~HuffmanBranchNode() {
-		delete left;
-		delete right;
+		if(left) delete left;
+		if(right) delete right;
 	}
 };
 
@@ -103,11 +102,11 @@ private:
 	void createSymbolNodeFromLine(const string& text);
 
 public:
-	void readFileIntoNodeQueue(istream& istr){
+	void readFileIntoLeafNodes(istream& istr){
 		string text;
 		while (getline(istr, text)) {
 			createSymbolNodeFromLine(text);
-			}
+		}
 	}
 
 	const multiset<HuffmanNode*, NodeLess>& getLeafNodes() {
@@ -132,11 +131,7 @@ void XMLReader::createSymbolNodeFromLine(const string& text){
 	int frequency = atoi(res[1].str().c_str());
 	node->setFrequency(frequency);
 
-	int sizeBefore = leafNodes.size();
 	leafNodes.insert(node);
-	if (sizeBefore == leafNodes.size()) {
-		cout << endl << "SleafNode size did not change after insertion!" << endl;
-	}
 }
 
 
@@ -157,55 +152,16 @@ public:
 	}
 
 	void _encodeAllSymbols(string& encodingPattern, HuffmanNode* node);
-
-	string getEncodingForSymbol(char symbol) {
-		map<char, string> :: iterator it = symbolEncodings.find(symbol);
-		if (it == symbolEncodings.end()) {
-			cout << "Nope" << endl;
-			return "";
-		}
-		return it->second;
-	}
-
-	char decodeCharFromBits(const string& bits) {
-		map<char, string>::iterator it;
-		for (it = symbolEncodings.begin(); it != symbolEncodings.end(); it++) {
-			if ((*it).second == bits){
-				return it->first;
-			}
-		}
-		cout << endl << "Error! Not found encoding!" << endl;
-		return ' ';
-	}
-	bool containsEncodingPattern(string pattern) {
-		map<char,string>::iterator it;
-		for (it = symbolEncodings.begin(); it != symbolEncodings.end(); ++it) {
-			if ((*it).second == pattern){
-				return true;
-			}
-		}
-		return false;
-	}
-	
+	string getEncodingForSymbol(char symbol);	
+	bool containsEncodingPattern(const string& pattern);
+	char getCharFromPattern(const string& pattern);
 	void buildTreeFromLeafNodes(multiset<HuffmanNode*, NodeLess>& nodes);
+	void processMinimumNode(multiset<HuffmanNode*, NodeLess>& nodes, string& key, int& freq, HuffmanNode*& min);
 
-	void processMinimumNode(multiset<HuffmanNode*, NodeLess>& nodes, string& key, int& freq, HuffmanNode*& min){
-		min = *(nodes.begin());
-		key = min->getKey();
-		freq = min->getFrequency();
-		treeSet.insert(min);
-		nodes.erase(nodes.begin());
-	}
-
-	HuffmanTree(){
-	}
+	HuffmanTree() {}
 
 	~HuffmanTree() {
-	//	multiset<HuffmanNode*> :: iterator it;
-	//	for (it = treeSet.begin(); it != treeSet.end(); ++it) {
-	//		delete *it;
-	//		treeSet.erase(it);
-	//	}
+		delete *(treeSet.rbegin());
 	}
 };
 
@@ -213,6 +169,7 @@ void HuffmanTree::_encodeAllSymbols(string& encodingPattern, HuffmanNode* node) 
 	if (!node) return;
 	if (node->isBranchNode()) {
 		HuffmanBranchNode* bn = dynamic_cast<HuffmanBranchNode*>(node);
+
 		encodingPattern += '0';
 		_encodeAllSymbols(encodingPattern, bn->getLeftNode());
 		encodingPattern = encodingPattern.substr(0, encodingPattern.length() - 1);
@@ -230,12 +187,50 @@ void HuffmanTree::_encodeAllSymbols(string& encodingPattern, HuffmanNode* node) 
 	}
 }
 
+string HuffmanTree::getEncodingForSymbol(char symbol) {
+	map<char, string> ::iterator it = symbolEncodings.find(symbol);
+	if (it == symbolEncodings.end()) {
+		cout << "Failed to find encoding for symbol: \'" << symbol << "\'" << endl;
+		return "";
+	}
+	return it->second;
+}
+
+bool HuffmanTree::containsEncodingPattern(const string& pattern) {
+	map<char, string>::iterator it;
+	for (it = symbolEncodings.begin(); it != symbolEncodings.end(); ++it) {
+		if ((*it).second == pattern){
+			return true;
+		}
+	}
+	return false;
+}
+
+char HuffmanTree::getCharFromPattern(const string& pattern) {
+	map<char, string>::iterator it;
+	for (it = symbolEncodings.begin(); it != symbolEncodings.end(); ++it) {
+		if ((*it).second == pattern){
+			return it->first;
+		}
+	}
+	cout << "Error! Hasn't found encoding!" << endl;
+	return ' ';
+}
+
+void HuffmanTree::processMinimumNode(multiset<HuffmanNode*, NodeLess>& nodes, string& key, int& freq, HuffmanNode*& min){
+	min = *(nodes.begin());
+	key = min->getKey();
+	freq = min->getFrequency();
+	treeSet.insert(min);
+	nodes.erase(nodes.begin());
+}
+
 void HuffmanTree::buildTreeFromLeafNodes(multiset<HuffmanNode*, NodeLess>& nodes) {
 	while (nodes.size() > 1) {
 		string key1;
 		string key2;
-		int freq1;
-		int freq2;
+		int freq1 = 0;
+		int freq2 = 0;
 		HuffmanNode* left = nullptr;
 		HuffmanNode* right = nullptr;
 
@@ -273,32 +268,24 @@ void TextEncryptor::processInputStream(istream& input) {
 	char c;
 	bitset<8> outputSymbol;
 	string pattern;
-	int patternlength;
-	//ostringstream ostr;
-
-	while (input >> c) {
+	while (input.get(c)) {
 		pattern += ht->getEncodingForSymbol(c);
-		patternlength = pattern.length();
 
-		while (patternlength >= 8) {
+		while ( pattern.length() >= 8) {
 			outputSymbol = bitset<8>(pattern.substr(0, 8));
 			char i = (char)outputSymbol.to_ulong();
-			// binaryOutput << i;
 			operator << (binaryOutput, i);
 
 			pattern.erase(0, 8);
-			patternlength -= 8;
 		}
 	}
 
 	if (pattern.length() > 0) {
 		while (pattern.length() < 8) {
-			pattern += "0";
+			pattern += "1";
 		}
 		outputSymbol = bitset<8>(pattern);
 		char i = (char)outputSymbol.to_ulong();
-		//ostr << (char)i;
-		//binaryOutput << i;
 		operator << (binaryOutput, i);
 	}
 }
@@ -313,8 +300,7 @@ public:
 	BinaryDecryptor(HuffmanTree* huffmantree, ostream& output) : textOutput(output) {
 		ht = huffmantree;
 	}
-	~BinaryDecryptor() {
-	}
+	~BinaryDecryptor() {}
 };
 
 void BinaryDecryptor::processInputStream(istream& input) {
@@ -322,12 +308,11 @@ void BinaryDecryptor::processInputStream(istream& input) {
 	char desiredSymbol;
 	char inputChar;
 
-	while (input >> inputChar) {
+	while (input.get(inputChar)) {
 
-		//bitset<8> inputBit(inputChar);
-		for (size_t i = 0; i < sizeof(inputChar) * 8; ++i) {
+		for (size_t i = 0; i < 8; ++i) {
 			char filter = 1 << (sizeof(inputChar) * 8 - i - 1);
-			if ( (inputChar & filter) ) {
+			if ((inputChar & filter)) {
 				currentEncoding += '1';
 			}
 			else {
@@ -335,7 +320,10 @@ void BinaryDecryptor::processInputStream(istream& input) {
 			}
 
 			if (ht->containsEncodingPattern(currentEncoding)) {
-				desiredSymbol = ht->decodeCharFromBits(currentEncoding);
+				desiredSymbol = ht->getCharFromPattern(currentEncoding);
+				//if (desiredSymbol == '.') {
+				//	cout << "." << endl;
+				//}
 				textOutput << desiredSymbol;
 				currentEncoding.clear();
 			}
@@ -360,41 +348,67 @@ void enableDebug(bool bvalue)
 	_CrtSetDbgFlag(tmpFlag);
 }
 
+void getFileName(string whichFile, string& fileName) {
+	cout << "Enter file name for " << whichFile << ": " << endl;
+	getline(cin, fileName);
+}
+
 void main() {
 	////////////DEBUG STATEMENT////////////////////////
 	enableDebug(true);
+	
+	string freqFileName;
+	getFileName("frequency table", freqFileName);
+	string inputAlphanumTextFileName;
+	getFileName("input alphanumeric text", inputAlphanumTextFileName);
+	string convBinName;
+	getFileName("converted binary text", convBinName);
+	string alphanumOutputName;
+	getFileName("alphanumeric output", alphanumOutputName);
 
+	//read in frequency table and build leaf nodes
 	unique_ptr<XMLReader> reader(new XMLReader());
-	ifstream is;
-	is.open("Frequencies.txt");
-	reader->readFileIntoNodeQueue(is);
+	ifstream freqTableFile;
+	freqTableFile.open(freqFileName);
+	reader->readFileIntoLeafNodes(freqTableFile);
 
+	//build tree from the leaf nodes and encode all the symbols
 	multiset<HuffmanNode*, NodeLess> leafNodes = reader->getLeafNodes();
 	unique_ptr<HuffmanTree> ht (new HuffmanTree());
 	ht->buildTreeFromLeafNodes(leafNodes);
 	ht->encodeAllSymbols();
 
-	ofstream os;
-	string convBinName = "ConvertedBinary.txt";
-	os.open(convBinName, ios_base::out | ios_base::binary);
-	unique_ptr<TextEncryptor> encryptor ( new TextEncryptor(ht.get(), os) );
-	ifstream is2;
-	is2.open("Input Text File.txt");
-	encryptor->processInputStream(is2);
-	os.flush();
-	os.close();
-	is2.close();
+	//set up input alphanumeric text file and output binary file
+	ifstream inputAlphanumTextFile;
+	inputAlphanumTextFile.open(inputAlphanumTextFileName);
+	ofstream convertedBinaryFile;
+	convertedBinaryFile.open(convBinName, ios_base::out | ios_base::binary);
 
-	ifstream is3;
-	is3.open(convBinName, ios_base::in | ios_base::binary);
-	ofstream os2;
-	os2.open("ConvertedAlphanumeric.txt");
-	unique_ptr<BinaryDecryptor> decryptor ( new BinaryDecryptor(ht.get(), os2) );
-	if (is3.is_open()){
-		decryptor->processInputStream(is3);
-		is3.close();
+	//create text encryptor to convert alphanumeric text to binary text
+	unique_ptr<TextEncryptor> encryptor ( new TextEncryptor(ht.get(), convertedBinaryFile) );
+	encryptor->processInputStream(inputAlphanumTextFile);
+	convertedBinaryFile.close();
+	inputAlphanumTextFile.close();
+
+	//set up binary input file and alphanumeric output file
+	ifstream binaryInput;
+	binaryInput.open(convBinName, ios_base::in | ios_base::binary);
+	ofstream alphanumericOutput;
+	alphanumericOutput.open(alphanumOutputName);
+
+	//create binary decryptor to convert binary text to alphanumeric text
+	unique_ptr<BinaryDecryptor> decryptor ( new BinaryDecryptor(ht.get(), alphanumericOutput) );
+	if (binaryInput.is_open()){
+		decryptor->processInputStream(binaryInput);
+		binaryInput.close();
 	}
-	os2.close();
+	alphanumericOutput.close();
+
+	cout << endl;
+	cout << "Frequency table located in " << freqFileName << endl;
+	cout << "Input alphanumeric text located in " << inputAlphanumTextFileName << endl;
+	cout << "Converted binary text located in" << convBinName << endl;
+	cout << "Final converted alphanumeric text located in " << alphanumOutputName << endl;
 
 	system("pause");
 }
