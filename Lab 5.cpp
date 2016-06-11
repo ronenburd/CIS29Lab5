@@ -1,7 +1,7 @@
 // Ronen Burd
 // Partner: Maryna Kapurova
 //Lab 5
-//Part I was supposed to do: encoding
+//Part that I was supposed to do: encoding
 //CIS 28
 #include <iostream>
 #include <string>
@@ -280,9 +280,13 @@ void TextEncryptor::processInputStream(istream& input) {
 		}
 	}
 
+	// If last byte is not completely filled up,
+	//   we append bits from white space sysmbol until the end of the last byte...
 	if (pattern.length() > 0) {
+		string& strWhiteSpace = ht->getEncodingForSymbol(' ');
+		size_t curSpaceBit = 0;
 		while (pattern.length() < 8) {
-			pattern += "1";
+			pattern += strWhiteSpace[ curSpaceBit++ % strWhiteSpace.length() ];
 		}
 		outputSymbol = bitset<8>(pattern);
 		char i = (char)outputSymbol.to_ulong();
@@ -307,23 +311,16 @@ void BinaryDecryptor::processInputStream(istream& input) {
 	string currentEncoding;
 	char desiredSymbol;
 	char inputChar;
+	bitset<8> inputBits;
 
 	while (input.get(inputChar)) {
-
+		
+		inputBits = inputChar;
+		string inputString = inputBits.to_string();
 		for (size_t i = 0; i < 8; ++i) {
-			char filter = 1 << (sizeof(inputChar) * 8 - i - 1);
-			if ((inputChar & filter)) {
-				currentEncoding += '1';
-			}
-			else {
-				currentEncoding += '0';
-			}
-
+			currentEncoding += inputString[i];
 			if (ht->containsEncodingPattern(currentEncoding)) {
 				desiredSymbol = ht->getCharFromPattern(currentEncoding);
-				//if (desiredSymbol == '.') {
-				//	cout << "." << endl;
-				//}
 				textOutput << desiredSymbol;
 				currentEncoding.clear();
 			}
